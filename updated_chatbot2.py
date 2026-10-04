@@ -366,7 +366,7 @@ with col_left:
 
 with col_right:
     with st.container(border=True):
-        st.markdown("<h1 style='text-align: center;'>🌿 Document Dashboard</h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align: center;'>🌿 Long Story Short</h1>", unsafe_allow_html=True)
         
         if st.session_state.summary_str:
             tab1, tab2 = st.tabs(["📋 Summary & Audit", "📄 Raw Text"])
