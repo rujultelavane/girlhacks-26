@@ -207,7 +207,7 @@ The application will open in your browser.
 
 Built with ❤️ for the hackathon by:
 
-**Rujul Telavane, Shreya Kamath, Sumaiya Shai, Mudra Raval**
+**Rujul Telavane, Shreya Kamath, Sumaiya Shaik, Mudra Raval**
 
 ---
 
