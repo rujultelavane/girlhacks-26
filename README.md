@@ -65,7 +65,7 @@ An accuracy audit provides additional context around the generated insights and 
 | 🧠 **AI Summarization** | Convert long or messy content into concise summaries      |
 | 🎯 **Action Items**     | Identify tasks and next steps from the source material    |
 | 🔑 **Key Decisions**    | Surface important decisions made in meetings or documents |
-| 💬 **Document Chatbot** | Ask questions about the uploaded content                  |
+| 💬 **Document Chatbot** | Ask to a RAG chatbot questions about the uploaded content |
 | 🔍 **Accuracy Audit**   | Review gener                                              |
 
 
