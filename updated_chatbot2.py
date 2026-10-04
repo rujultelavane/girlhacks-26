@@ -3,7 +3,8 @@ import streamlit as st
 from dotenv import load_dotenv
 from azure.core.credentials import AzureKeyCredential
 from azure.ai.formrecognizer import DocumentAnalysisClient
-from openai import AzureOpenAI
+#from openai import AzureOpenAI
+from openai import OpenAI
 
 # 1. Page Configuration & Title
 st.set_page_config(page_title="Azure AI Document & Insight Studio", page_icon="📝", layout="wide")
@@ -23,30 +24,56 @@ if "chat_messages" not in st.session_state:
 # 3. Azure Services Initialization
 @st.cache_resource
 def get_azure_clients():
-    """Initializes and caches Azure clients."""
+    """Initializes and caches Azure Document Intelligence + OpenAI client."""
     load_dotenv()
-    
-    endpoint_openai = os.getenv("AZURE_OPENAI_ENDPOINT") or st.secrets.get("AZURE_OPENAI_ENDPOINT")
-    key_openai = os.getenv("AZURE_OPENAI_API_KEY") or st.secrets.get("AZURE_OPENAI_API_KEY")
+
+    # OpenAI API key (NOT Azure OpenAI)
+    openai_key = os.getenv("OPENAI_API_KEY") or st.secrets.get("OPENAI_API_KEY")
+
+    # Azure Document Intelligence
     endpoint_doc = os.getenv("AZURE_DOC_INTEL_ENDPOINT") or st.secrets.get("AZURE_DOC_INTEL_ENDPOINT")
     key_doc = os.getenv("AZURE_DOC_INTEL_KEY") or st.secrets.get("AZURE_DOC_INTEL_KEY")
-    
-    if not all([endpoint_openai, key_openai, endpoint_doc, key_doc]):
-        st.error("Missing Azure Credentials! Please check your .env or Streamlit secrets configuration.")
+
+    if not all([openai_key, endpoint_doc, key_doc]):
+        st.error("Missing required API keys! Check .env or Streamlit secrets.")
         return None, None
 
-    ai_client = AzureOpenAI(
-        azure_endpoint=endpoint_openai,
-        api_key=key_openai,
-        api_version="2024-08-01-preview"
-    )
-    
+    ai_client = OpenAI(api_key=openai_key)
+
     doc_client = DocumentAnalysisClient(
         endpoint=endpoint_doc,
         credential=AzureKeyCredential(key_doc)
     )
-    
+
     return ai_client, doc_client
+
+# def get_azure_clients():
+#     """Initializes and caches Azure clients."""
+#     load_dotenv()
+    
+#     endpoint_openai = os.getenv("AZURE_OPENAI_ENDPOINT") or st.secrets.get("AZURE_OPENAI_ENDPOINT")
+#     key_openai = os.getenv("AZURE_OPENAI_API_KEY") or st.secrets.get("AZURE_OPENAI_API_KEY")
+#     endpoint_doc = os.getenv("AZURE_DOC_INTEL_ENDPOINT") or st.secrets.get("AZURE_DOC_INTEL_ENDPOINT")
+#     key_doc = os.getenv("AZURE_DOC_INTEL_KEY") or st.secrets.get("AZURE_DOC_INTEL_KEY")
+    
+#     if not all([endpoint_openai, key_openai, endpoint_doc, key_doc]):
+#         st.error("Missing Azure Credentials! Please check your .env or Streamlit secrets configuration.")
+#         return None, None
+
+#     def get_openai_client():
+#         return OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+#     # ai_client = AzureOpenAI(
+#     #     azure_endpoint=endpoint_openai,
+#     #     api_key=key_openai,
+#     #     api_version="2024-08-01-preview"
+#     # )
+    
+#     doc_client = DocumentAnalysisClient(
+#         endpoint=endpoint_doc,
+#         credential=AzureKeyCredential(key_doc)
+#     )
+    
+#     return ai_client, doc_client
 
 ai_client, doc_client = get_azure_clients()
 
@@ -62,7 +89,7 @@ def extract_text(uploaded_file):
     return "\n".join([paragraph.content for paragraph in result.paragraphs])
 
 def generate_summary(text, style):
-    """Generates a structured summary using Azure OpenAI."""
+    """Generates a structured summary using OpenAI API."""
     if not ai_client:
         return ""
     system_prompt = (
@@ -119,6 +146,7 @@ def query_document_insights(user_question, document_text, chat_history):
 
     chunks = chunk_text(document_text)
 
+    # Build system prompt once
     system_prompt = (
         "You are a Document Insights Expert. When answering:\n"
         "1. Quote the exact lines from the document you used.\n"
@@ -128,23 +156,57 @@ def query_document_insights(user_question, document_text, chat_history):
     for i, chunk in enumerate(chunks):
         system_prompt += f"\n--- DOCUMENT CHUNK {i+1} ---\n{chunk}\n"
 
-        # Build messages: system + history + new question
-        messages = [{"role": "system", "content": system_prompt}]
+    # Build messages
+    messages = [{"role": "system", "content": system_prompt}]
 
-        # Only append user/assistant messages (not system)
-        for msg in chat_history:
-            if msg["role"] in ["user", "assistant"]:
-                messages.append(msg)
+    for msg in chat_history:
+        if msg["role"] in ["user", "assistant"]:
+            messages.append(msg)
 
-        messages.append({"role": "user", "content": user_question})
+    messages.append({"role": "user", "content": user_question})
 
-        response = ai_client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=messages,
-            temperature=0.3
-        )
+    # Single OpenAI call
+    response = ai_client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=messages,
+        temperature=0.3
+    )
 
     return response.choices[0].message.content
+
+# def query_document_insights(user_question, document_text, chat_history):
+#     """Answers user questions based strictly on the uploaded document text."""
+#     if not ai_client:
+#         return ""
+
+#     chunks = chunk_text(document_text)
+
+#     system_prompt = (
+#         "You are a Document Insights Expert. When answering:\n"
+#         "1. Quote the exact lines from the document you used.\n"
+#         "2. If the answer is not present, say 'The document does not mention this.'\n\n"
+#     )
+
+#     for i, chunk in enumerate(chunks):
+#         system_prompt += f"\n--- DOCUMENT CHUNK {i+1} ---\n{chunk}\n"
+
+#         # Build messages: system + history + new question
+#         messages = [{"role": "system", "content": system_prompt}]
+
+#         # Only append user/assistant messages (not system)
+#         for msg in chat_history:
+#             if msg["role"] in ["user", "assistant"]:
+#                 messages.append(msg)
+
+#         messages.append({"role": "user", "content": user_question})
+
+#         response = ai_client.chat.completions.create(
+#             model="gpt-4o-mini",
+#             messages=messages,
+#             temperature=0.3
+#         )
+
+#     return response.choices[0].message.content
 
 # def query_document_insights(user_question, document_text, chat_history):
 #     """Answers user questions based strictly on the uploaded document text."""
@@ -200,7 +262,7 @@ if uploaded_file is not None:
                     st.error(f"Failed to extract text: {e}")
 
             if st.session_state.extracted_text:
-                with st.spinner("Synthesizing summary via Azure OpenAI..."):
+                with st.spinner("Synthesizing summary via OpenAI..."):
                     st.session_state.summary_str = generate_summary(st.session_state.extracted_text, summary_style)
                 
                 with st.spinner("Auditing accuracy (Model 1)..."):
